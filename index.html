@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8">
+  <title>آنالیز سلیقه عطری</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+  :root{
+    --bg:#FBF9FF;
+    --card:#FFFFFF;
+    --accent:#B8E0D2;
+    --accent2:#F6D6E0;
+    --text:#333;
+    --muted:#6B6B6B;
+  }
+  body { font-family: 'Vazirmatn', Arial, Helvetica, sans-serif; background: linear-gradient(180deg,var(--bg),#FFF); color:var(--text); max-width:900px; margin:20px auto; padding:20px; direction: rtl; }
+  .container { padding:18px; background:transparent; }
+  input, textarea, select { width:100%; padding:10px; margin:8px 0; box-sizing:border-box; border-radius:10px; border:1px solid #eee; background:var(--card); }
+  .notes-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .note { background:linear-gradient(180deg, var(--card), #fcfcff); padding:8px 10px; border-radius:999px; border:1px solid #f0f0f5; cursor:pointer; box-shadow: 0 4px 12px rgba(100,90,140,0.04); }
+  .note input { margin-left:6px; }
+  .card { border-radius:14px; padding:14px; margin-top:12px; background:var(--card); box-shadow: 0 6px 20px rgba(100,90,140,0.06); }
+  button { background: linear-gradient(90deg,var(--accent),var(--accent2)); border:none; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; }
+  h2 { margin-top:0; }
+  small { color:var(--muted); }
+  .flex { display:flex; gap:10px; align-items:center; }
+  .muted { color:var(--muted); font-size:0.95em; }
+</style>
+
+</head>
+<body>
+  <h2>آنالیز سلیقه عطری</h2>
+  <p>لیست ادکلن‌های مورد علاقه‌ات را با کاما جدا کن (مثال: Bleu de Chanel, Dior Sauvage) <br>یا از پایین نت‌ها را انتخاب کن.</p>
+
+  <label>ادکلن‌های مورد علاقه (یا لیست نت‌ها):</label>
+  <textarea id="favorites" rows="2" placeholder="مثال: Bleu de Chanel, Dior Sauvage"></textarea>
+
+  <label>یا نت‌‌ها را از اینجا انتخاب کن (اختیاری):</label>
+  <div id="notes-box" class="card"></div>
+
+  <div style="margin-top:8px;">
+    <button id="analyzeBtn">تحلیل کن</button>
+  </div>
+
+  <div id="output" class="result"></div>
+
+<script>
+async function loadNotes(){
+  // For simplicity, show a set of common notes (same as sample DB)
+  const notes = ["bergamot","grapefruit","mint","pink_pepper","nutmeg","jasmine","ginger","sandalwood","cedar","labdanum","pepper","lavender","vetiver","patchouli","ambroxan","fig_leaf","musk","apple","violet_leaf","amber","ozonic","coal","incense"];
+  const box = document.getElementById("notes-box");
+  notes.forEach(n=>{
+    const id = "note_"+n;
+    const lbl = document.createElement("label");
+    lbl.style.display="inline-block";
+    lbl.style.margin="4px";
+    lbl.innerHTML = `<input type="checkbox" id="${id}" value="${n}"> ${n.replace('_',' ')} `;
+    box.appendChild(lbl);
+  });
+}
+function getSelectedNotes(){
+  const boxes = document.querySelectorAll("#notes-box input[type=checkbox]");
+  const sel = [];
+  boxes.forEach(b=>{ if(b.checked) sel.push(b.value); });
+  return sel;
+}
+document.getElementById("analyzeBtn").addEventListener("click", async ()=>{
+  const favsText = document.getElementById("favorites").value.trim();
+  const favs = favsText ? favsText.split(",").map(s=>s.trim()).filter(Boolean) : [];
+  const selectedNotes = getSelectedNotes();
+  const payload = {};
+  if(favs.length>0) payload.favorites = favs;
+  if(selectedNotes.length>0) payload.notes = selectedNotes;
+  if(Object.keys(payload).length===0){
+    alert("لطفاً حداقل یک ادکلن یا یک نت انتخاب کن.");
+    return;
+  }
+  const out = document.getElementById("output");
+  out.innerHTML = "<em>در حال پردازش نتیجه...</em>";
+  try{
+    const res = await fetch("http://localhost:8000/api/analyze", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(data.error){
+      out.innerHTML = "<b>خطا:</b> " + data.error;
+      return;
+    }
+    let html = "<div class='card'><h3>پروفایل بویایی</h3>";
+    html += "<ul>";
+    data.profile.forEach(p=> html += `<li>${p.family}: ${p.score}%</li>`);
+    html += "</ul></div>";
+
+    html += "<div class='card'><h3>Top notes</h3><ol>";
+    data.top_notes.forEach(n=> html += `<li>${n.note} — score ${n.score}</li>`);
+    html += "</ol></div>";
+
+    html += "<div class='card'><h3>پیشنهادها</h3><ol>";
+    data.recommendations.forEach(r=> html += `<li><b>${r.name}</b> — ${r.brand || ''} — score ${r.score} — <i>${r.reason}</i></li>`);
+    html += "</ol></div>";
+
+    out.innerHTML = html;
+  }catch(err){
+    out.innerHTML = "<b>خطا در اتصال به سرور:</b> لطفاً backend را اجرا کنید (uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) و سپس این صفحه را دوباره باز کنید.";
+    console.error(err);
+  }
+});
+
+loadNotes();
+</script>
+</body>
+</html>

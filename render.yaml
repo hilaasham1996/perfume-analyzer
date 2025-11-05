@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: perfume-analyzer-backend
+    env: docker
+    repo: https://github.com/<YOUR_USERNAME>/perfume-analyzer
+    branch: main
+    dockerfilePath: backend/Dockerfile
+    plan: free
+
+  - type: static
+    name: perfume-analyzer-frontend
+    repo: https://github.com/<YOUR_USERNAME>/perfume-analyzer
+    branch: main
+    staticPublishPath: frontend
+    plan: free
